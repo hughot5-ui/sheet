@@ -62,7 +62,14 @@ function makeCharacter(letter) {
     nameEn: isA ? 'Character Name' : 'Character Name',
     tags: [...DEFAULT_TAGS],
     mainImage: null,
+    mainImageTransform: { scale: 1, x: 0, y: 0 }, // 메인 이미지 확대/이동 상태
     subImages: [null, null, null, null], // 4 sub slots by default (main + 4 = 5 total)
+    subImageTransforms: [
+      { scale: 1, x: 0, y: 0 },
+      { scale: 1, x: 0, y: 0 },
+      { scale: 1, x: 0, y: 0 },
+      { scale: 1, x: 0, y: 0 },
+    ], // 서브 이미지별 확대/이동 상태
     subLabels: ['평상시', '표정 예시', '전신 or 뒷모습', '기타'],
     subShapes: ['square', 'square', 'rect', 'square'], // 'square' | 'rect' — 전신컷은 직사각형 기본
     traits: {
@@ -436,8 +443,17 @@ function Editable({ value, onChange, tag = 'span', className, style, placeholder
    IMAGE SLOT
    ============================================================ */
 
-function ImageSlot({ src, onChange, onRemoveImage, onRemoveSlot, className = '', placeholder = 'DROP IMAGE', children }) {
+const IMAGE_SLOT_ZOOM_MIN = 1;
+const IMAGE_SLOT_ZOOM_MAX = 3;
+const DEFAULT_IMAGE_TRANSFORM = { scale: 1, x: 0, y: 0 };
+
+function ImageSlot({ src, transform, onChange, onTransformChange, onRemoveImage, onRemoveSlot, className = '', placeholder = 'DROP IMAGE', children }) {
   const inputRef = useRef(null);
+  const boxRef = useRef(null);
+  const dragRef = useRef(null);
+  const suppressClickRef = useRef(false);
+  const t = transform || DEFAULT_IMAGE_TRANSFORM;
+  const isAdjusted = t.scale !== 1 || t.x !== 0 || t.y !== 0;
 
   const handleClick = () => inputRef.current?.click();
 
@@ -453,19 +469,86 @@ function ImageSlot({ src, onChange, onRemoveImage, onRemoveSlot, className = '',
     }
   };
 
+  const clampPan = (x, y, scale) => {
+    const rect = boxRef.current ? boxRef.current.getBoundingClientRect() : null;
+    const maxX = rect ? (rect.width * (scale - 1)) / 2 : 0;
+    const maxY = rect ? (rect.height * (scale - 1)) / 2 : 0;
+    return {
+      x: Math.max(-maxX, Math.min(maxX, x)),
+      y: Math.max(-maxY, Math.min(maxY, y)),
+    };
+  };
+
+  const setZoom = (nextScale) => {
+    if (!onTransformChange) return;
+    const scale = Math.max(IMAGE_SLOT_ZOOM_MIN, Math.min(IMAGE_SLOT_ZOOM_MAX, nextScale));
+    const pos = clampPan(t.x, t.y, scale);
+    onTransformChange({ scale, ...pos });
+  };
+
+  const resetTransform = (e) => {
+    e.stopPropagation();
+    onTransformChange && onTransformChange({ ...DEFAULT_IMAGE_TRANSFORM });
+  };
+
+  const startPan = (e) => {
+    if (!onTransformChange || t.scale <= 1) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dragRef.current = { startX: e.clientX, startY: e.clientY, origX: t.x, origY: t.y, moved: false };
+    const onMove = (ev) => {
+      const ds = dragRef.current;
+      if (!ds) return;
+      const dx = ev.clientX - ds.startX;
+      const dy = ev.clientY - ds.startY;
+      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) ds.moved = true;
+      const pos = clampPan(ds.origX + dx, ds.origY + dy, t.scale);
+      onTransformChange({ scale: t.scale, ...pos });
+    };
+    const onUp = () => {
+      if (dragRef.current && dragRef.current.moved) suppressClickRef.current = true;
+      dragRef.current = null;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
+  const handleWheel = (e) => {
+    if (!src || !onTransformChange) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setZoom(t.scale - e.deltaY * 0.0015);
+  };
+
   return (
     <div
       className={'image-slot ' + className}
-      onClick={handleClick}
+      ref={boxRef}
+      onClick={(e) => {
+        if (suppressClickRef.current) { suppressClickRef.current = false; return; }
+        handleClick();
+      }}
       onDragOver={(e) => { e.preventDefault(); }}
       onDrop={(e) => {
         e.preventDefault();
         const file = e.dataTransfer.files?.[0];
         if (file) handleFile(file);
       }}
+      onWheel={handleWheel}
     >
       {src ? (
-        <img src={src} alt="" />
+        <img
+          src={src}
+          alt=""
+          draggable={false}
+          onMouseDown={startPan}
+          style={{
+            transform: `translate(${t.x}px, ${t.y}px) scale(${t.scale})`,
+            cursor: t.scale > 1 ? 'grab' : 'pointer',
+          }}
+        />
       ) : (
         <div className="image-slot__placeholder">
           + IMAGE<br/>
@@ -485,6 +568,26 @@ function ImageSlot({ src, onChange, onRemoveImage, onRemoveSlot, className = '',
           onClick={(e) => { e.stopPropagation(); onRemoveSlot(); }}
           title="이 이미지 칸 삭제"
         >칸삭제</button>
+      )}
+      {src && onTransformChange && (
+        <div
+          className="image-slot__zoom"
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <span className="image-slot__zoom-icon" title="휠 스크롤 또는 슬라이더로 확대, 확대 후 이미지를 드래그하면 위치 조정">🔍</span>
+          <input
+            type="range"
+            min={IMAGE_SLOT_ZOOM_MIN}
+            max={IMAGE_SLOT_ZOOM_MAX}
+            step="0.01"
+            value={t.scale}
+            onChange={(e) => setZoom(parseFloat(e.target.value))}
+          />
+          {isAdjusted && (
+            <button className="image-slot__zoom-reset" onClick={resetTransform} title="확대/위치 초기화">초기화</button>
+          )}
+        </div>
       )}
       {children}
       <input

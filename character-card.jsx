@@ -23,18 +23,28 @@ function CharacterCard({ char, idx, dispatch, isSingle }) {
   };
 
   /* ---- images ---- */
-  const setMainImage = (dataUrl) => updateChar({ mainImage: dataUrl });
-  const removeMainImage = () => updateChar({ mainImage: null });
+  const setMainImage = (dataUrl) => updateChar({ mainImage: dataUrl, mainImageTransform: { scale: 1, x: 0, y: 0 } });
+  const removeMainImage = () => updateChar({ mainImage: null, mainImageTransform: { scale: 1, x: 0, y: 0 } });
+  const setMainImageTransform = (t) => updateChar({ mainImageTransform: t });
   const setSubImage = (subIdx, dataUrl) => {
     const subImages = [...char.subImages];
     subImages[subIdx] = dataUrl;
-    updateChar({ subImages });
+    const subImageTransforms = [...(char.subImageTransforms || [])];
+    subImageTransforms[subIdx] = { scale: 1, x: 0, y: 0 };
+    updateChar({ subImages, subImageTransforms });
+  };
+  const setSubImageTransform = (subIdx, t) => {
+    const subImageTransforms = [...(char.subImageTransforms || [])];
+    subImageTransforms[subIdx] = t;
+    updateChar({ subImageTransforms });
   };
   // 이미지만 비우고 칸(라벨)은 유지
   const removeSubImage = (subIdx) => {
     const subImages = [...char.subImages];
     subImages[subIdx] = null;
-    updateChar({ subImages });
+    const subImageTransforms = [...(char.subImageTransforms || [])];
+    subImageTransforms[subIdx] = { scale: 1, x: 0, y: 0 };
+    updateChar({ subImages, subImageTransforms });
   };
   const setSubLabel = (subIdx, v) => {
     const subLabels = [...char.subLabels];
@@ -44,15 +54,17 @@ function CharacterCard({ char, idx, dispatch, isSingle }) {
   const addSubSlot = () => {
     updateChar({
       subImages: [...char.subImages, null],
+      subImageTransforms: [...(char.subImageTransforms || []), { scale: 1, x: 0, y: 0 }],
       subLabels: [...char.subLabels, '라벨'],
       subShapes: [...(char.subShapes || []), 'square'],
     });
   };
   const removeSubSlot = (subIdx) => {
     const subImages = char.subImages.filter((_, i) => i !== subIdx);
+    const subImageTransforms = (char.subImageTransforms || []).filter((_, i) => i !== subIdx);
     const subLabels = char.subLabels.filter((_, i) => i !== subIdx);
     const subShapes = (char.subShapes || []).filter((_, i) => i !== subIdx);
-    updateChar({ subImages, subLabels, subShapes });
+    updateChar({ subImages, subImageTransforms, subLabels, subShapes });
   };
   const toggleSubShape = (subIdx) => {
     const shapes = [...(char.subShapes || [])];
@@ -157,7 +169,9 @@ function CharacterCard({ char, idx, dispatch, isSingle }) {
           <window.ImageSlot
             className="image-slot--main"
             src={char.mainImage}
+            transform={char.mainImageTransform}
             onChange={setMainImage}
+            onTransformChange={setMainImageTransform}
             onRemoveImage={char.mainImage ? removeMainImage : null}
             placeholder={mainPlaceholder}
           />
@@ -171,7 +185,9 @@ function CharacterCard({ char, idx, dispatch, isSingle }) {
                   key={sIdx}
                   className={'image-slot--sub image-slot--' + shape}
                   src={src}
+                  transform={(char.subImageTransforms || [])[sIdx]}
                   onChange={(v) => setSubImage(sIdx, v)}
+                  onTransformChange={(t) => setSubImageTransform(sIdx, t)}
                   onRemoveImage={src ? () => removeSubImage(sIdx) : null}
                   onRemoveSlot={() => removeSubSlot(sIdx)}
                   placeholder="SUB"
