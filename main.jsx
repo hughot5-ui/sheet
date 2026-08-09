@@ -7,6 +7,8 @@ const { useState: useStateM, useEffect: useEffectM, useReducer, useRef: useRefM,
 
 function reducer(state, action) {
   switch (action.type) {
+    case 'LOAD_STATE':
+      return action.state;
     case 'RESET':
       return JSON.parse(JSON.stringify(window.DEFAULT_STATE));
     case 'SET_MODE':
@@ -79,16 +81,34 @@ function reducer(state, action) {
    ============================================================ */
 
 function App() {
-  const [state, dispatch] = useReducer(reducer, null, () => {
-    const loaded = window.loadState();
-    return loaded || JSON.parse(JSON.stringify(window.DEFAULT_STATE));
-  });
+  const [state, dispatch] = useReducer(reducer, null, () => JSON.parse(JSON.stringify(window.DEFAULT_STATE)));
+
+  // 최초 마운트 시 IndexedDB에서 저장된 상태를 비동기로 불러온다
+  // (IndexedDB 접근 자체가 비동기라 useReducer 초기값으로는 바로 못 넣는다).
+  const [ready, setReady] = useStateM(false); // 초기 로드 완료 여부
+  useEffectM(() => {
+    let cancelled = false;
+    window.loadState().then((loaded) => {
+      if (cancelled) return;
+      if (loaded) dispatch({ type: 'LOAD_STATE', state: loaded });
+      setReady(true);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   // Auto-save
+  // ready가 true가 되기 전(=초기 로드가 끝나기 전)에는 저장하지 않는다.
+  // 그렇지 않으면 로드가 끝나기 전에 기본값이 먼저 저장되면서, 방금 불러오려던
+  // 기존 저장 데이터를 기본값으로 덮어써버리는 경쟁 조건이 생길 수 있다.
+  const [saveError, setSaveError] = useStateM(false); // 저장 용량 초과 등으로 자동저장이 실패했는지 여부
   useEffectM(() => {
-    const t = setTimeout(() => window.saveState(state), 300);
-    return () => clearTimeout(t);
-  }, [state]);
+    if (!ready) return;
+    let cancelled = false;
+    const t = setTimeout(() => {
+      window.saveState(state).then((ok) => { if (!cancelled) setSaveError(!ok); });
+    }, 300);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [state, ready]);
 
   const canvasRef = useRefM(null);
   const [isExporting, setIsExporting] = useStateM(false);
@@ -199,7 +219,12 @@ function App() {
         state={state}
         dispatch={dispatch}
         onExport={exportImage}
-        onManualSave={() => window.saveState(state)}
+        onManualSave={async () => {
+          const ok = await window.saveState(state);
+          setSaveError(!ok);
+          return ok;
+        }}
+        saveError={saveError}
         onAddSticker={onAddSticker}
       />
 

@@ -97,6 +97,19 @@ input, textarea { font-family: inherit; color: inherit; }
   border-color: #4a7c59;
 }
 .tb-btn--saved:hover { background: #4a7c59; }
+.tb-btn--save-error {
+  background: #b3432b;
+  color: #fff;
+  border-color: #b3432b;
+}
+.tb-btn--save-error:hover { background: #b3432b; }
+.toolbar__save-warning {
+  font-size: 11.5px;
+  color: #b3432b;
+  font-weight: 600;
+  margin-right: 2px;
+  cursor: help;
+}
 
 .tb-swatch-input {
   width: 28px; height: 28px;

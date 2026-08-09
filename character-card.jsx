@@ -193,6 +193,7 @@ function CharacterCard({ char, idx, dispatch, isSingle }) {
                   onRemoveImage={src ? () => removeSubImage(sIdx) : null}
                   onRemoveSlot={() => removeSubSlot(sIdx)}
                   placeholder="SUB"
+                  maxDim={1000}
                 >
                   <button
                     className="image-slot__shape-toggle"

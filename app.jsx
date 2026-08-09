@@ -101,26 +101,78 @@ const DEFAULT_STATE = {
 
 const STORAGE_KEY = 'character-sheet-v2';
 
-function loadState() {
+/* ------------------------------------------------------------
+   기존에는 localStorage(사이트당 보통 5~10MB 한도)에 이미지까지 포함한
+   전체 상태를 JSON 하나로 저장했다. 이미지를 몇 장만 넣어도 한도를 넘기기
+   쉬운데, localStorage.setItem은 한도 초과 시 통째로 실패한다 — 그러면
+   이미지뿐 아니라 팔레트/텍스트 등 나머지 내용까지 전부 저장되지 않은
+   것처럼 보인다. IndexedDB는 한도가 훨씬 넉넉해서(보통 수백MB 이상,
+   남은 디스크 용량에 비례) 같은 구조의 데이터를 그대로 옮겨 저장 실패를
+   사실상 없앤다.
+   ------------------------------------------------------------ */
+const IDB_NAME = 'character-sheet-db';
+const IDB_STORE = 'state';
+
+function openIdb() {
+  return new Promise((resolve, reject) => {
+    if (!window.indexedDB) { reject(new Error('IndexedDB 미지원 브라우저')); return; }
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = () => {
+      if (!req.result.objectStoreNames.contains(IDB_STORE)) {
+        req.result.createObjectStore(IDB_STORE);
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function loadState() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    // migration guard
+    const db = await openIdb();
+    const parsed = await new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const req = tx.objectStore(IDB_STORE).get(STORAGE_KEY);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
     if (!parsed || !parsed.characters) return null;
     // 구버전 저장 데이터에는 관계 해시태그 필드가 없을 수 있으므로 기본값 보강
     if (!parsed.relationshipTags) parsed.relationshipTags = [...DEFAULT_STATE.relationshipTags];
     return parsed;
   } catch (e) {
+    console.warn('저장된 데이터를 불러오지 못했습니다.', e);
     return null;
   }
 }
 
-function saveState(state) {
+async function saveState(state) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    const db = await openIdb();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).put(state, STORAGE_KEY);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    return true;
   } catch (e) {
-    console.warn('Failed to save', e);
+    console.warn('자동저장 실패', e);
+    return false;
+  }
+}
+
+async function clearSavedState() {
+  try {
+    const db = await openIdb();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).delete(STORAGE_KEY);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (e) {
+    console.warn('저장 데이터 삭제 실패', e);
   }
 }
 
@@ -254,18 +306,18 @@ async function fetchMinimalFontEmbedCSS(fontIds) {
    TOOLBAR
    ============================================================ */
 
-function Toolbar({ state, dispatch, onExport, onManualSave, onAddSticker }) {
+function Toolbar({ state, dispatch, onExport, onManualSave, saveError, onAddSticker }) {
   const fileInputRef = useRef(null);
-  const [saveFlash, setSaveFlash] = useState(false);
+  const [saveFlash, setSaveFlash] = useState(null); // null | 'ok' | 'fail'
 
   const applyPreset = (preset) => {
     dispatch({ type: 'APPLY_PRESET', preset });
   };
 
-  const handleManualSave = () => {
-    onManualSave();
-    setSaveFlash(true);
-    setTimeout(() => setSaveFlash(false), 1500);
+  const handleManualSave = async () => {
+    const ok = await onManualSave();
+    setSaveFlash(ok ? 'ok' : 'fail');
+    setTimeout(() => setSaveFlash(null), 1800);
   };
 
   return (
@@ -391,16 +443,21 @@ function Toolbar({ state, dispatch, onExport, onManualSave, onAddSticker }) {
 
       {/* Reset + Export */}
       <div className="toolbar__group" style={{borderRight:0}}>
+        {saveError && (
+          <span className="toolbar__save-warning" title="브라우저 저장 용량이 가득 차서 자동저장이 실패하고 있어요. 이미지를 줄이거나(서브 이미지 개수 축소) PNG로 내보내서 백업해두세요.">
+            ⚠ 저장 용량 초과
+          </span>
+        )}
         <button
-          className={'tb-btn' + (saveFlash ? ' tb-btn--saved' : '')}
+          className={'tb-btn' + (saveFlash === 'ok' ? ' tb-btn--saved' : '') + (saveFlash === 'fail' ? ' tb-btn--save-error' : '')}
           onClick={handleManualSave}
           title="지금 상태를 브라우저에 즉시 임시 저장합니다"
-        >{saveFlash ? '저장됨 ✓' : '임시 저장'}</button>
+        >{saveFlash === 'ok' ? '저장됨 ✓' : saveFlash === 'fail' ? '저장 실패 ⚠' : '임시 저장'}</button>
         <button
           className="tb-btn"
-          onClick={() => {
+          onClick={async () => {
             if (confirm('모든 내용을 초기 상태로 되돌립니다. 계속할까요?')) {
-              localStorage.removeItem(STORAGE_KEY);
+              await window.clearSavedState();
               dispatch({ type: 'RESET' });
             }
           }}
@@ -462,7 +519,7 @@ const IMAGE_SLOT_ZOOM_MIN = 1;
 const IMAGE_SLOT_ZOOM_MAX = 3;
 const DEFAULT_IMAGE_TRANSFORM = { scale: 1, x: 0, y: 0 };
 
-function ImageSlot({ src, transform, onChange, onTransformChange, onRemoveImage, onRemoveSlot, className = '', placeholder = 'DROP IMAGE', children }) {
+function ImageSlot({ src, transform, onChange, onTransformChange, onRemoveImage, onRemoveSlot, className = '', placeholder = 'DROP IMAGE', maxDim, children }) {
   const inputRef = useRef(null);
   const boxRef = useRef(null);
   const dragRef = useRef(null);
@@ -475,7 +532,7 @@ function ImageSlot({ src, transform, onChange, onTransformChange, onRemoveImage,
   const handleFile = async (file) => {
     if (!file) return;
     try {
-      const dataUrl = await resizeImageFile(file);
+      const dataUrl = await resizeImageFile(file, maxDim || 1600);
       onChange(dataUrl);
     } catch (e) {
       console.warn('이미지 압축 실패, 원본으로 저장합니다.', e);
@@ -628,6 +685,7 @@ window.STORAGE_KEY = STORAGE_KEY;
 window.makeCharacter = makeCharacter;
 window.loadState = loadState;
 window.saveState = saveState;
+window.clearSavedState = clearSavedState;
 window.fileToDataURL = fileToDataURL;
 window.resizeImageFile = resizeImageFile;
 window.fetchMinimalFontEmbedCSS = fetchMinimalFontEmbedCSS;
