@@ -134,6 +134,93 @@ function App() {
 
     const node = canvasRef.current;
 
+    // html-to-image는 캡처 직전에 <img>들이 실제로 디코딩 완료됐는지 기다려주지 않는다.
+    // 특히 방금 업로드한 큰 base64 이미지이거나 렌더링이 느린 브라우저(구형 엔진, 저사양 PC 등)에서는
+    // 이미지가 아직 디코딩 중인 상태로 캡처되어 결과물에서 사진만 통째로 빠지는 증상이 생길 수 있다.
+    // 그래서 export 전에 캔버스 안의 모든 <img>가 완전히 로드/디코딩될 때까지 명시적으로 기다린다.
+    const waitForImagesDecoded = async (root) => {
+      const imgs = Array.from(root.querySelectorAll('img')).filter(img => img.src);
+      await Promise.all(imgs.map((img) => {
+        if (img.complete && img.naturalWidth > 0) {
+          return img.decode ? img.decode().catch(() => {}) : Promise.resolve();
+        }
+        return new Promise((resolve) => {
+          img.addEventListener('load', resolve, { once: true });
+          img.addEventListener('error', resolve, { once: true });
+        });
+      }));
+    };
+    await waitForImagesDecoded(node);
+
+    // iOS(WebKit) 대응: html-to-image는 화면을 SVG foreignObject로 감싸서 캡처하는데,
+    // object-fit: cover + overflow:hidden + CSS transform(확대/이동) 조합의 <img>를
+    // WebKit이 foreignObject 안에서 제대로 그리지 못하고 통째로 빈 채로 캡처하는 경우가 있다
+    // (텍스트/색상 블록은 정상, 사진만 사라지는 증상). 이를 피하기 위해 캡처 직전에
+    // 각 이미지 칸을 실제 보이는 크롭/확대/이동 상태 그대로 canvas에 구워서
+    // transform 없는 평범한 이미지로 잠깐 바꿔치기하고, 캡처가 끝나면 원상복구한다.
+    const flattenImageSlotsForExport = (root) => {
+      const restores = [];
+      const slots = Array.from(root.querySelectorAll('.image-slot'));
+      for (const slot of slots) {
+        const img = slot.querySelector('img');
+        if (!img || !img.src || !img.naturalWidth) continue;
+        const rect = slot.getBoundingClientRect();
+        const boxW = rect.width, boxH = rect.height;
+        if (!boxW || !boxH) continue;
+
+        // 현재 인라인 transform(translate(x,y) scale(s))을 파싱
+        const m = /translate\(([-\d.]+)px,\s*([-\d.]+)px\)\s*scale\(([-\d.]+)\)/.exec(img.style.transform || '');
+        const tx = m ? parseFloat(m[1]) : 0;
+        const ty = m ? parseFloat(m[2]) : 0;
+        const s = m ? parseFloat(m[3]) : 1;
+
+        // object-fit: cover 기준 소스 크롭 영역
+        const natW = img.naturalWidth, natH = img.naturalHeight;
+        const boxRatio = boxW / boxH, imgRatio = natW / natH;
+        let sw, sh, sx, sy;
+        if (imgRatio > boxRatio) {
+          sh = natH; sw = natH * boxRatio; sx = (natW - sw) / 2; sy = 0;
+        } else {
+          sw = natW; sh = natW / boxRatio; sx = 0; sy = (natH - sh) / 2;
+        }
+
+        // 위 크롭 위에 추가로 걸린 확대(scale)/이동(translate)을 소스 좌표로 환산
+        const boxX1 = boxW / 2 * (1 - 1 / s) - tx / s;
+        const boxY1 = boxH / 2 * (1 - 1 / s) - ty / s;
+        const finalSx = sx + (boxX1 / boxW) * sw;
+        const finalSy = sy + (boxY1 / boxH) * sh;
+        const finalSw = sw / s;
+        const finalSh = sh / s;
+
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.max(1, Math.round(boxW * 2));
+          canvas.height = Math.max(1, Math.round(boxH * 2));
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, finalSx, finalSy, finalSw, finalSh, 0, 0, canvas.width, canvas.height);
+          const flatUrl = canvas.toDataURL('image/png');
+
+          const originalSrc = img.src;
+          const originalTransform = img.style.transform;
+          const originalObjectFit = img.style.objectFit;
+          img.src = flatUrl;
+          img.style.transform = 'none';
+          img.style.objectFit = 'fill';
+          restores.push(() => {
+            img.src = originalSrc;
+            img.style.transform = originalTransform;
+            img.style.objectFit = originalObjectFit;
+          });
+        } catch (e) {
+          console.warn('이미지 칸 flatten 실패, 원본 그대로 캡처합니다.', e);
+        }
+      }
+      return () => restores.forEach((fn) => fn());
+    };
+
+    const restoreImageSlots = flattenImageSlotsForExport(node);
+    await waitForImagesDecoded(node);
+
     // 폰트 조합(제목/본문 폰트)이 바뀌지 않았다면 이전에 만들어둔 임베드 CSS를 재사용.
     // htmlToImage.getFontEmbedCSS(node)는 페이지에 걸린 폰트 14종을 전부 훑어서 매우 느리므로
     // 실제로 선택된 2개 폰트만 받아오는 window.fetchMinimalFontEmbedCSS를 대신 사용한다.
@@ -183,6 +270,7 @@ function App() {
       console.error('Export failed', err);
       alert('저장에 실패했어요. 브라우저 콘솔(F12)에 표시된 에러 메시지를 확인해주세요.\n' + (err && err.message ? err.message : err));
     } finally {
+      restoreImageSlots();
       document.body.classList.remove('exporting');
       setIsExporting(false);
     }
