@@ -133,16 +133,18 @@ function CharacterCard({ char, idx, dispatch, isSingle }) {
       {/* NAME ROW */}
       <div className="char__namerow">
         <span className="char__badge">{char.letter}</span>
-        <window.Editable
-          className="char__name-ko"
-          value={char.nameKo}
-          onChange={setNameKo}
-        />
-        <window.Editable
-          className="char__name-en"
-          value={char.nameEn}
-          onChange={setNameEn}
-        />
+        <div className="char__name-group">
+          <window.Editable
+            className="char__name-ko"
+            value={char.nameKo}
+            onChange={setNameKo}
+          />
+          <window.Editable
+            className="char__name-en"
+            value={char.nameEn}
+            onChange={setNameEn}
+          />
+        </div>
       </div>
 
       {/* TAGS */}

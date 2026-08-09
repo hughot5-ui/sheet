@@ -214,6 +214,11 @@ input, textarea { font-family: inherit; color: inherit; }
   border-bottom: 1px solid color-mix(in oklab, var(--text) 12%, transparent);
   padding-bottom: 12px;
 }
+.char__name-group {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
 .char__badge {
   width: 26px; height: 26px;
   border-radius: 50%;
