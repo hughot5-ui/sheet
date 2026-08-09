@@ -87,6 +87,7 @@ function makeCharacter(letter) {
 const DEFAULT_STATE = {
   mode: 1, // 1 or 2
   subtitle: '작품 · 세계관 · 관계 · 시대 배경을 여기에 짧게 적어주세요',
+  relationshipTags: ['#관계태그1', '#관계태그2'], // 2인 모드에서만 표시되는 두 캐릭터 사이의 관계 해시태그
   imageCredit: '',
   characters: [makeCharacter('A'), makeCharacter('B')],
   paletteId: 'clean',
@@ -107,6 +108,8 @@ function loadState() {
     const parsed = JSON.parse(raw);
     // migration guard
     if (!parsed || !parsed.characters) return null;
+    // 구버전 저장 데이터에는 관계 해시태그 필드가 없을 수 있으므로 기본값 보강
+    if (!parsed.relationshipTags) parsed.relationshipTags = [...DEFAULT_STATE.relationshipTags];
     return parsed;
   } catch (e) {
     return null;

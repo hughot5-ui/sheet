@@ -28,6 +28,8 @@ function reducer(state, action) {
     }
     case 'SET_SUBTITLE':
       return { ...state, subtitle: action.value };
+    case 'SET_RELATIONSHIP_TAGS':
+      return { ...state, relationshipTags: action.tags };
     case 'SET_IMAGE_CREDIT':
       return { ...state, imageCredit: action.value };
 
@@ -166,6 +168,20 @@ function App() {
     }
   };
 
+  /* 2인 모드 관계 해시태그 */
+  const relationshipTags = state.relationshipTags || [];
+  const setRelationshipTag = (tIdx, v) => {
+    const tags = [...relationshipTags];
+    tags[tIdx] = v;
+    dispatch({ type: 'SET_RELATIONSHIP_TAGS', tags });
+  };
+  const removeRelationshipTag = (tIdx) => {
+    dispatch({ type: 'SET_RELATIONSHIP_TAGS', tags: relationshipTags.filter((_, i) => i !== tIdx) });
+  };
+  const addRelationshipTag = () => {
+    dispatch({ type: 'SET_RELATIONSHIP_TAGS', tags: [...relationshipTags, '#관계태그'] });
+  };
+
   /* CSS variables */
   const canvasStyle = {
     '--bg': state.bg,
@@ -201,6 +217,24 @@ function App() {
             placeholder="작품 · 세계관 · 관계 · 시대 배경을 여기에 짧게 적어주세요"
             multiline
           />
+
+          {/* RELATIONSHIP TAGS — 2인 모드에서만 노출되는 두 캐릭터 사이의 관계 해시태그 */}
+          {state.mode === 2 && (
+            <div className="relationship-tags">
+              {relationshipTags.map((tag, tIdx) => (
+                <span className="relationship-tag" key={tIdx}>
+                  <span
+                    contentEditable
+                    suppressContentEditableWarning
+                    onBlur={(e) => setRelationshipTag(tIdx, e.target.innerText)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } }}
+                  >{tag}</span>
+                  <span className="tag-del" onClick={() => removeRelationshipTag(tIdx)}>×</span>
+                </span>
+              ))}
+              <button className="relationship-tag-add" onClick={addRelationshipTag}>+ 관계 태그</button>
+            </div>
+          )}
 
           {/* CHARACTERS */}
           <div className={'characters mode-' + state.mode}>

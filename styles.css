@@ -310,6 +310,51 @@ input, textarea { font-family: inherit; color: inherit; }
 }
 .char__tag-add:hover { opacity: 0.9; }
 
+/* relationship hashtags — 2인 모드에서 두 캐릭터 사이의 관계를 나타내는 해시태그, 서브타이틀 아래 중앙에 표시 */
+.relationship-tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin: -12px auto 26px;
+  max-width: 760px;
+}
+.relationship-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--point) 14%, transparent);
+  color: var(--point);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-body);
+  border: 1px solid color-mix(in oklab, var(--point) 30%, transparent);
+  cursor: text;
+  position: relative;
+}
+.relationship-tag .tag-del {
+  opacity: 0;
+  margin-left: 4px;
+  font-size: 10px;
+  color: var(--point);
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.relationship-tag:hover .tag-del { opacity: 0.6; }
+.relationship-tag-add {
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: transparent;
+  border: 1px dashed color-mix(in oklab, var(--point) 40%, transparent);
+  color: var(--point);
+  opacity: 0.6;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: var(--font-body);
+}
+.relationship-tag-add:hover { opacity: 1; }
+
 /* main body: image left, info right */
 .char__body {
   display: grid;
@@ -878,6 +923,7 @@ input, textarea { font-family: inherit; color: inherit; }
 .exporting .image-slot__zoom,
 .exporting .images-add-btn,
 .exporting .char__tag-add,
+.exporting .relationship-tag-add,
 .exporting .check-list__add,
 .exporting .check-item__del,
 .exporting .tag-del,
