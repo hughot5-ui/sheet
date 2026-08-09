@@ -36,26 +36,20 @@ const PALETTE_PRESETS = [
 const DEFAULT_TAGS = ['#태그1', '#태그2', '#태그3'];
 
 const DEFAULT_TRAITS_APPEARANCE_A = [
-  '눈에 띄는 헤어스타일',
-  '기본 표정: 살짝 웃는 표정, 이완된 눈',
-  '가늘고 날카로운 눈매',
-  '두께감이 있는 체형 (근육질에 가까움)',
+  '-',
 ];
 const DEFAULT_TRAITS_OUTFIT_A = [
-  '옷은 심플하고 절제된 컬러 위주',
+  '-',
 ];
 const DEFAULT_TRAITS_APPEARANCE_B = [
-  '순수하고 무해한 인상',
-  '둥근 눈매 + 처진 눈썹 + 속눈썹 + 언더라인',
-  '슬랜더 체형 (평균~조금 마름)',
+  '-',
 ];
 const DEFAULT_TRAITS_OUTFIT_B = [
-  '허리 기장 짧은 아우터 / 몸에 고정 벨트',
-  '부담이 있을 만큼 얇지 않은 실루엣',
+  '-',
 ];
 
-const DEFAULT_META_A = { gender: 'M', age: '1살 연하', height: '182cm', affiliation: '아이돌 센터' };
-const DEFAULT_META_B = { gender: 'F', age: '1살 연상', height: '170cm', affiliation: '모델' };
+const DEFAULT_META_A = { gender: 'M', age: 'age', height: 'cm', affiliation: '직업' };
+const DEFAULT_META_B = { gender: 'F', age: 'age', height: 'cm', affiliation: '직업' };
 
 function makeCharacter(letter) {
   const isA = letter === 'A';
@@ -73,8 +67,8 @@ function makeCharacter(letter) {
       outfit: isA ? [...DEFAULT_TRAITS_OUTFIT_A] : [...DEFAULT_TRAITS_OUTFIT_B],
     },
     checkedTraits: { appearance: {}, outfit: {} }, // cat -> idx -> bool
-    oText: isA ? '강한 갈매기 눈매 (눈알도 OK)' : '유순한 사슴상 (또렷한 미소)',
-    xText: isA ? '순둥이 (진짜 누구나도 됨) / 애매함' : '금발 or 갈발 / 거유',
+    oText: isA ? '-' : '-',
+    xText: isA ? '-' : '-',
     palette: isA ? ['#c8322a','#e5b856','#f4d8a0','#efe9dd'] : ['#a8b088','#d0d8b0','#e8ecd0','#3a3e2c'],
     meta: isA ? {...DEFAULT_META_A} : {...DEFAULT_META_B},
   };
