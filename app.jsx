@@ -5,21 +5,24 @@ const { useState, useEffect, useRef, useCallback, useMemo } = React;
    CONSTANTS
    ============================================================ */
 
+// gQuery: index.html에 걸린 구글 폰트 링크의 해당 폰트 부분과 정확히 동일한 쿼리 조각.
+// 내보내기(export) 시 이 조각만 따로 구글에 요청해서, 실제 쓰는 폰트 2개만 이미지에 심는다.
+// (그냥 두면 html-to-image가 페이지에 걸린 폰트 전체를 다 훑어서 매우 느려짐)
 const FONT_OPTIONS = [
-  { id: 'pretendard', label: 'Pretendard (기본 산세리프)', family: "'Pretendard Variable', Pretendard, sans-serif" },
-  { id: 'noto-sans-kr', label: 'Noto Sans KR', family: "'Noto Sans KR', sans-serif" },
-  { id: 'noto-serif-kr', label: 'Noto Serif KR', family: "'Noto Serif KR', serif" },
-  { id: 'nanum-myeongjo', label: '나눔명조', family: "'Nanum Myeongjo', serif" },
-  { id: 'gowun-batang', label: '고운바탕', family: "'Gowun Batang', serif" },
-  { id: 'gowun-dodum', label: '고운돋움', family: "'Gowun Dodum', sans-serif" },
-  { id: 'gaegu', label: '개구 (손글씨)', family: "'Gaegu', cursive" },
-  { id: 'nanum-pen', label: '나눔펜 (손글씨)', family: "'Nanum Pen Script', cursive" },
-  { id: 'playfair', label: 'Playfair Display (영문 세리프)', family: "'Playfair Display', serif" },
-  { id: 'cormorant', label: 'Cormorant Garamond', family: "'Cormorant Garamond', serif" },
-  { id: 'eb-garamond', label: 'EB Garamond', family: "'EB Garamond', serif" },
-  { id: 'ibm-plex-serif', label: 'IBM Plex Serif', family: "'IBM Plex Serif', serif" },
-  { id: 'inter', label: 'Inter (영문 산세리프)', family: "'Inter', sans-serif" },
-  { id: 'jetbrains', label: 'JetBrains Mono (모노)', family: "'JetBrains Mono', monospace" },
+  { id: 'pretendard', label: 'Pretendard (기본 산세리프)', family: "'Pretendard Variable', Pretendard, sans-serif", isPretendard: true },
+  { id: 'noto-sans-kr', label: 'Noto Sans KR', family: "'Noto Sans KR', sans-serif", gQuery: 'Noto+Sans+KR:wght@300;400;500;700;900' },
+  { id: 'noto-serif-kr', label: 'Noto Serif KR', family: "'Noto Serif KR', serif", gQuery: 'Noto+Serif+KR:wght@400;500;600;700;900' },
+  { id: 'nanum-myeongjo', label: '나눔명조', family: "'Nanum Myeongjo', serif", gQuery: 'Nanum+Myeongjo:wght@400;700;800' },
+  { id: 'gowun-batang', label: '고운바탕', family: "'Gowun Batang', serif", gQuery: 'Gowun+Batang:wght@400;700' },
+  { id: 'gowun-dodum', label: '고운돋움', family: "'Gowun Dodum', sans-serif", gQuery: 'Gowun+Dodum' },
+  { id: 'gaegu', label: '개구 (손글씨)', family: "'Gaegu', cursive", gQuery: 'Gaegu:wght@300;400;700' },
+  { id: 'nanum-pen', label: '나눔펜 (손글씨)', family: "'Nanum Pen Script', cursive", gQuery: 'Nanum+Pen+Script' },
+  { id: 'playfair', label: 'Playfair Display (영문 세리프)', family: "'Playfair Display', serif", gQuery: 'Playfair+Display:ital,wght@0,400;0,600;0,700;0,800;1,400' },
+  { id: 'cormorant', label: 'Cormorant Garamond', family: "'Cormorant Garamond', serif", gQuery: 'Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400' },
+  { id: 'eb-garamond', label: 'EB Garamond', family: "'EB Garamond', serif", gQuery: 'EB+Garamond:ital,wght@0,400;0,600;1,400' },
+  { id: 'ibm-plex-serif', label: 'IBM Plex Serif', family: "'IBM Plex Serif', serif", gQuery: 'IBM+Plex+Serif:ital,wght@0,400;0,600;1,400' },
+  { id: 'inter', label: 'Inter (영문 산세리프)', family: "'Inter', sans-serif", gQuery: 'Inter:wght@300;400;500;600;700' },
+  { id: 'jetbrains', label: 'JetBrains Mono (모노)', family: "'JetBrains Mono', monospace", gQuery: 'JetBrains+Mono:wght@400;500;700' },
 ];
 
 const PALETTE_PRESETS = [
@@ -176,6 +179,65 @@ function resizeImageFile(file, maxDim = 1600, jpegQuality = 0.85) {
 function fontFamilyById(id) {
   const f = FONT_OPTIONS.find(f => f.id === id);
   return f ? f.family : FONT_OPTIONS[0].family;
+}
+
+/* ============================================================
+   MINIMAL FONT EMBEDDING (내보내기용)
+   ------------------------------------------------------------
+   html-to-image 기본 폰트 임베드는 페이지에 걸린 폰트 전체(14종)를
+   다 훑어서 다운로드하기 때문에 저장이 매우 느려진다.
+   실제로 선택된 2개(제목체/본문체) 폰트만 구글/CDN에서 새로 받아와
+   base64로 심어서, 그 결과만 htmlToImage의 fontEmbedCSS로 넘긴다.
+   ============================================================ */
+
+async function urlToBase64DataUri(url) {
+  const res = await fetch(url, { mode: 'cors' });
+  if (!res.ok) throw new Error('font file fetch failed: ' + url);
+  const blob = await res.blob();
+  const mime = blob.type || 'font/woff2';
+  const buf = await blob.arrayBuffer();
+  let binary = '';
+  const bytes = new Uint8Array(buf);
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return `data:${mime};base64,${btoa(binary)}`;
+}
+
+// 구글 폰트/Pretendard CSS 텍스트 안의 url(...) 들을 실제로 fetch해서 base64로 치환
+async function embedFontFacesFromCSS(cssText) {
+  const urlRe = /url\((https:[^)]+?)\)/g;
+  const urls = [...new Set([...cssText.matchAll(urlRe)].map(m => m[1]))];
+  const map = {};
+  await Promise.all(urls.map(async (u) => {
+    try {
+      map[u] = await urlToBase64DataUri(u);
+    } catch (e) {
+      console.warn('폰트 파일 임베드 실패, 해당 파일은 건너뜁니다.', u, e);
+    }
+  }));
+  return cssText.replace(urlRe, (whole, u) => (map[u] ? `url(${map[u]})` : whole));
+}
+
+async function fetchMinimalFontEmbedCSS(fontIds) {
+  const uniqueIds = [...new Set(fontIds)];
+  const opts = uniqueIds
+    .map(id => FONT_OPTIONS.find(f => f.id === id))
+    .filter(Boolean);
+
+  const cssChunks = await Promise.all(opts.map(async (opt) => {
+    if (opt.isPretendard) {
+      const res = await fetch('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css');
+      const text = await res.text();
+      return embedFontFacesFromCSS(text);
+    }
+    if (opt.gQuery) {
+      const res = await fetch(`https://fonts.googleapis.com/css2?family=${opt.gQuery}&display=swap`);
+      const text = await res.text();
+      return embedFontFacesFromCSS(text);
+    }
+    return '';
+  }));
+
+  return cssChunks.join('\n');
 }
 
 /* ============================================================
@@ -450,6 +512,7 @@ window.loadState = loadState;
 window.saveState = saveState;
 window.fileToDataURL = fileToDataURL;
 window.resizeImageFile = resizeImageFile;
+window.fetchMinimalFontEmbedCSS = fetchMinimalFontEmbedCSS;
 window.fontFamilyById = fontFamilyById;
 window.Toolbar = Toolbar;
 window.Editable = Editable;

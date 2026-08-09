@@ -112,11 +112,13 @@ function App() {
 
     const node = canvasRef.current;
 
-    // 폰트 조합(제목/본문 폰트)이 바뀌지 않았다면 이전에 만들어둔 임베드 CSS를 재사용
+    // 폰트 조합(제목/본문 폰트)이 바뀌지 않았다면 이전에 만들어둔 임베드 CSS를 재사용.
+    // htmlToImage.getFontEmbedCSS(node)는 페이지에 걸린 폰트 14종을 전부 훑어서 매우 느리므로
+    // 실제로 선택된 2개 폰트만 받아오는 window.fetchMinimalFontEmbedCSS를 대신 사용한다.
     const fontKey = state.fontHeading + '|' + state.fontBody;
     if (fontEmbedCacheRef.current.key !== fontKey) {
       try {
-        const css = await htmlToImage.getFontEmbedCSS(node);
+        const css = await window.fetchMinimalFontEmbedCSS([state.fontHeading, state.fontBody]);
         fontEmbedCacheRef.current = { key: fontKey, css };
       } catch (e) {
         console.warn('폰트 임베드 CSS 생성 실패, 매번 새로 처리합니다.', e);
