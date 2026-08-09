@@ -90,6 +90,8 @@ function App() {
 
   const canvasRef = useRefM(null);
   const [isExporting, setIsExporting] = useStateM(false);
+  // 내보내기마다 웹폰트를 새로 fetch/인코딩하면 느리므로, 폰트 조합이 같으면 캐시를 재사용한다.
+  const fontEmbedCacheRef = useRefM({ key: null, css: null });
 
   const onAddSticker = (dataUrl) => {
     // approximate the canvas center for initial placement
@@ -109,11 +111,25 @@ function App() {
     await new Promise(r => setTimeout(r, 60));
 
     const node = canvasRef.current;
+
+    // 폰트 조합(제목/본문 폰트)이 바뀌지 않았다면 이전에 만들어둔 임베드 CSS를 재사용
+    const fontKey = state.fontHeading + '|' + state.fontBody;
+    if (fontEmbedCacheRef.current.key !== fontKey) {
+      try {
+        const css = await htmlToImage.getFontEmbedCSS(node);
+        fontEmbedCacheRef.current = { key: fontKey, css };
+      } catch (e) {
+        console.warn('폰트 임베드 CSS 생성 실패, 매번 새로 처리합니다.', e);
+        fontEmbedCacheRef.current = { key: null, css: null };
+      }
+    }
+
     const baseOptions = {
       pixelRatio: 2,
       backgroundColor: state.bg,
       cacheBust: true,
       style: { transform: 'none' },
+      ...(fontEmbedCacheRef.current.css ? { fontEmbedCSS: fontEmbedCacheRef.current.css } : {}),
     };
 
     const runExport = (opts) => {

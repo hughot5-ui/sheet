@@ -131,6 +131,48 @@ function fileToDataURL(file) {
   });
 }
 
+// 업로드한 원본 사진을 그대로 저장하면 용량이 커서 자동저장/내보내기가 느려지므로,
+// 캐릭터 시트에 실제로 필요한 크기(긴 변 기준 최대 1600px)로 줄이고 압축해서 저장한다.
+// 투명 배경이 필요한 PNG는 포맷을 유지하고, 그 외(대부분 사진)는 JPEG로 압축한다.
+function resizeImageFile(file, maxDim = 1600, jpegQuality = 0.85) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const { width, height } = img;
+        const longSide = Math.max(width, height);
+        const keepPng = file.type === 'image/png';
+
+        if (longSide <= maxDim) {
+          // 이미 충분히 작으면 원본 그대로 사용 (불필요한 재인코딩 방지)
+          resolve(reader.result);
+          return;
+        }
+
+        const scale = maxDim / longSide;
+        const w = Math.max(1, Math.round(width * scale));
+        const h = Math.max(1, Math.round(height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+
+        const mime = keepPng ? 'image/png' : 'image/jpeg';
+        const dataUrl = keepPng
+          ? canvas.toDataURL(mime)
+          : canvas.toDataURL(mime, jpegQuality);
+        resolve(dataUrl);
+      };
+      img.onerror = () => resolve(reader.result); // 리사이즈 실패 시 원본으로 폴백
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 function fontFamilyById(id) {
   const f = FONT_OPTIONS.find(f => f.id === id);
   return f ? f.family : FONT_OPTIONS[0].family;
@@ -253,7 +295,12 @@ function Toolbar({ state, dispatch, onExport, onAddSticker }) {
           onChange={async (e) => {
             const files = Array.from(e.target.files || []);
             for (const file of files) {
-              const dataUrl = await fileToDataURL(file);
+              let dataUrl;
+              try {
+                dataUrl = await resizeImageFile(file, 900); // 스티커는 화면에 작게 쓰이므로 더 작게
+              } catch (err) {
+                dataUrl = await fileToDataURL(file);
+              }
               onAddSticker(dataUrl);
             }
             e.target.value = '';
@@ -334,8 +381,14 @@ function ImageSlot({ src, onChange, onRemoveImage, onRemoveSlot, className = '',
 
   const handleFile = async (file) => {
     if (!file) return;
-    const dataUrl = await fileToDataURL(file);
-    onChange(dataUrl);
+    try {
+      const dataUrl = await resizeImageFile(file);
+      onChange(dataUrl);
+    } catch (e) {
+      console.warn('이미지 압축 실패, 원본으로 저장합니다.', e);
+      const dataUrl = await fileToDataURL(file);
+      onChange(dataUrl);
+    }
   };
 
   return (
@@ -396,6 +449,7 @@ window.makeCharacter = makeCharacter;
 window.loadState = loadState;
 window.saveState = saveState;
 window.fileToDataURL = fileToDataURL;
+window.resizeImageFile = resizeImageFile;
 window.fontFamilyById = fontFamilyById;
 window.Toolbar = Toolbar;
 window.Editable = Editable;
