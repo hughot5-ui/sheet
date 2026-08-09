@@ -118,10 +118,29 @@ function App() {
   const onAddSticker = (dataUrl) => {
     // approximate the canvas center for initial placement
     const rect = canvasRef.current?.getBoundingClientRect();
-    const w = 140, h = 140;
-    const x = rect ? Math.max(0, (rect.width - w) / 2) : 400;
-    const y = 200;
-    dispatch({ type: 'ADD_STICKER', src: dataUrl, x, y, w, h });
+    // 항상 140x140 정사각형으로 고정하면, 정사각형이 아닌 원본 이미지는
+    // .sticker img { width:100%; height:100% } 때문에 억지로 늘어나 찌그러져 보인다.
+    // 원본 이미지의 실제 가로세로 비율을 읽어와, 긴 변이 140px이 되도록 비율을 유지해서 배치한다.
+    const maxSide = 140;
+    const img = new Image();
+    img.onload = () => {
+      let w = maxSide, h = maxSide;
+      if (img.naturalWidth && img.naturalHeight) {
+        const ratio = img.naturalWidth / img.naturalHeight;
+        if (ratio >= 1) { w = maxSide; h = maxSide / ratio; }
+        else { h = maxSide; w = maxSide * ratio; }
+      }
+      const x = rect ? Math.max(0, (rect.width - w) / 2) : 400;
+      const y = 200;
+      dispatch({ type: 'ADD_STICKER', src: dataUrl, x, y, w, h });
+    };
+    img.onerror = () => {
+      const w = maxSide, h = maxSide;
+      const x = rect ? Math.max(0, (rect.width - w) / 2) : 400;
+      const y = 200;
+      dispatch({ type: 'ADD_STICKER', src: dataUrl, x, y, w, h });
+    };
+    img.src = dataUrl;
   };
 
   const exportImage = async (format = 'png') => {
