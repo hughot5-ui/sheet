@@ -242,13 +242,21 @@ input, textarea { font-family: inherit; color: inherit; }
   font-style: italic;
   letter-spacing: 0.02em;
 }
-.char__subtitle {
+/* whole-sheet subtitle (작품/세계관/관계/시대 배경), sits above both character cards */
+.sheet__subtitle {
   font-family: var(--font-body);
-  font-size: 12.5px;
+  font-size: 13px;
   letter-spacing: 0.02em;
   color: var(--text);
+  opacity: 0.65;
+  line-height: 1.6;
+  text-align: center;
+  max-width: 760px;
+  margin: -10px auto 30px;
+}
+.sheet__subtitle[data-placeholder]:empty::before {
+  content: attr(data-placeholder);
   opacity: 0.6;
-  line-height: 1.5;
 }
 .char__tags {
   display: flex;
@@ -295,11 +303,11 @@ input, textarea { font-family: inherit; color: inherit; }
 /* main body: image left, info right */
 .char__body {
   display: grid;
-  grid-template-columns: 480px 1fr;
+  grid-template-columns: 520px 1fr;
   gap: 32px;
 }
 .mode-2 .char__body {
-  grid-template-columns: 300px 1fr;
+  grid-template-columns: 340px 1fr;
   gap: 20px;
 }
 
@@ -308,14 +316,6 @@ input, textarea { font-family: inherit; color: inherit; }
   display: flex;
   flex-direction: column;
   gap: 10px;
-}
-.char__images-top {
-  display: grid;
-  grid-template-columns: 1fr 96px;
-  gap: 8px;
-}
-.mode-2 .char__images-top {
-  grid-template-columns: 1fr 86px;
 }
 .image-slot {
   position: relative;
@@ -332,20 +332,19 @@ input, textarea { font-family: inherit; color: inherit; }
 }
 .image-slot--main {
   aspect-ratio: 3 / 4;
+  width: 100%;
 }
-.char__images-side {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.char__images-extras {
+/* sub images: grid below main, shape toggled per slot */
+.char__images-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
 }
-.mode-2 .char__images-extras {
-  grid-template-columns: repeat(3, 1fr);
+.mode-2 .char__images-grid {
+  grid-template-columns: repeat(2, 1fr);
 }
+.image-slot--square { aspect-ratio: 1; }
+.image-slot--rect { aspect-ratio: 3 / 4; }
 .image-slot:hover {
   border-color: color-mix(in oklab, var(--point) 60%, transparent);
 }
@@ -415,30 +414,42 @@ input, textarea { font-family: inherit; color: inherit; }
 }
 .image-slot:hover .image-slot__remove-slot { display: flex; }
 
-.image-subgrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
+/* shape toggle button on each sub image */
+.image-slot__shape-toggle {
+  position: absolute;
+  top: 6px; left: 6px;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+  border: 0;
+  cursor: pointer;
+  font-size: 11px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+  z-index: 2;
 }
-.image-subgrid .image-slot { aspect-ratio: 1; }
+.image-slot:hover .image-slot__shape-toggle { display: flex; }
 
-
-.image-slot--add {
+/* full-width "add sub image slot" bar under the grid */
+.images-add-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  aspect-ratio: 1;
+  height: 36px;
   border: 1px dashed color-mix(in oklab, var(--text) 25%, transparent);
   background: transparent;
   color: var(--text);
   opacity: 0.5;
   cursor: pointer;
   border-radius: 8px;
-  font-size: 20px;
+  font-size: 12px;
   font-family: var(--font-body);
-  padding: 0;
 }
-.image-slot--add:hover { opacity: 1; }
+.images-add-btn:hover { opacity: 1; }
 
 /* INFO PANEL */
 .char__info {
@@ -782,7 +793,8 @@ input, textarea { font-family: inherit; color: inherit; }
 /* ============ HIDE UI during export ============ */
 .exporting .image-slot__remove,
 .exporting .image-slot__remove-slot,
-.exporting .image-slot--add,
+.exporting .image-slot__shape-toggle,
+.exporting .images-add-btn,
 .exporting .char__tag-add,
 .exporting .check-list__add,
 .exporting .check-item__del,

@@ -1,7 +1,7 @@
 /* global React */
 const { useState: useStateCC, useRef: useRefCC } = React;
 
-function CharacterCard({ char, idx, dispatch, isSingle, subtitle, onSubtitleChange }) {
+function CharacterCard({ char, idx, dispatch, isSingle }) {
   const updateChar = (patch) => dispatch({ type: 'UPDATE_CHAR', idx, patch });
 
   /* ---- name row ---- */
@@ -45,12 +45,20 @@ function CharacterCard({ char, idx, dispatch, isSingle, subtitle, onSubtitleChan
     updateChar({
       subImages: [...char.subImages, null],
       subLabels: [...char.subLabels, '라벨'],
+      subShapes: [...(char.subShapes || []), 'square'],
     });
   };
   const removeSubSlot = (subIdx) => {
     const subImages = char.subImages.filter((_, i) => i !== subIdx);
     const subLabels = char.subLabels.filter((_, i) => i !== subIdx);
-    updateChar({ subImages, subLabels });
+    const subShapes = (char.subShapes || []).filter((_, i) => i !== subIdx);
+    updateChar({ subImages, subLabels, subShapes });
+  };
+  const toggleSubShape = (subIdx) => {
+    const shapes = [...(char.subShapes || [])];
+    const current = shapes[subIdx] || 'square';
+    shapes[subIdx] = current === 'square' ? 'rect' : 'square';
+    updateChar({ subShapes: shapes });
   };
 
   /* ---- traits (외모/의상 체크리스트, cat: 'appearance' | 'outfit') ---- */
@@ -125,17 +133,6 @@ function CharacterCard({ char, idx, dispatch, isSingle, subtitle, onSubtitleChan
         />
       </div>
 
-      {/* SUBTITLE (세계관/관계/시대 배경 설명, 첫 캐릭터 카드에만 표시) */}
-      {subtitle != null && (
-        <window.Editable
-          tag="div"
-          className="char__subtitle"
-          value={subtitle}
-          onChange={onSubtitleChange}
-          multiline
-        />
-      )}
-
       {/* TAGS */}
       <div className="char__tags">
         {char.tags.map((tag, tIdx) => (
@@ -156,25 +153,34 @@ function CharacterCard({ char, idx, dispatch, isSingle, subtitle, onSubtitleChan
       <div className="char__body">
         {/* IMAGES */}
         <div className="char__images">
-          {/* top row: main + first 2 sub on side */}
-          <div className="char__images-top">
-            <window.ImageSlot
-              className="image-slot--main"
-              src={char.mainImage}
-              onChange={setMainImage}
-              onRemoveImage={char.mainImage ? removeMainImage : null}
-              placeholder={mainPlaceholder}
-            />
-            <div className="char__images-side">
-              {char.subImages.slice(0, 2).map((src, sIdx) => (
+          {/* main portrait: always fixed 3:4, full width */}
+          <window.ImageSlot
+            className="image-slot--main"
+            src={char.mainImage}
+            onChange={setMainImage}
+            onRemoveImage={char.mainImage ? removeMainImage : null}
+            placeholder={mainPlaceholder}
+          />
+
+          {/* sub images: below main, in a grid, each resizable square/rect */}
+          <div className="char__images-grid">
+            {char.subImages.map((src, sIdx) => {
+              const shape = (char.subShapes && char.subShapes[sIdx]) || 'square';
+              return (
                 <window.ImageSlot
                   key={sIdx}
+                  className={'image-slot--sub image-slot--' + shape}
                   src={src}
                   onChange={(v) => setSubImage(sIdx, v)}
                   onRemoveImage={src ? () => removeSubImage(sIdx) : null}
                   onRemoveSlot={() => removeSubSlot(sIdx)}
                   placeholder="SUB"
                 >
+                  <button
+                    className="image-slot__shape-toggle"
+                    onClick={(e) => { e.stopPropagation(); toggleSubShape(sIdx); }}
+                    title="비율 전환 (정사각형 / 직사각형)"
+                  >{shape === 'square' ? '▢' : '▭'}</button>
                   <div
                     className="image-slot__label"
                     contentEditable
@@ -183,40 +189,10 @@ function CharacterCard({ char, idx, dispatch, isSingle, subtitle, onSubtitleChan
                     onBlur={(e) => setSubLabel(sIdx, e.target.innerText)}
                   >{char.subLabels[sIdx]}</div>
                 </window.ImageSlot>
-              ))}
-            </div>
+              );
+            })}
           </div>
-
-          {/* extras row: remaining sub images at the bottom */}
-          {char.subImages.length > 2 && (
-            <div className="char__images-extras">
-              {char.subImages.slice(2).map((src, sIdxRaw) => {
-                const sIdx = sIdxRaw + 2;
-                return (
-                  <window.ImageSlot
-                    key={sIdx}
-                    src={src}
-                    onChange={(v) => setSubImage(sIdx, v)}
-                    onRemoveImage={src ? () => removeSubImage(sIdx) : null}
-                    onRemoveSlot={() => removeSubSlot(sIdx)}
-                    placeholder="SUB"
-                  >
-                    <div
-                      className="image-slot__label"
-                      contentEditable
-                      suppressContentEditableWarning
-                      onClick={(e) => e.stopPropagation()}
-                      onBlur={(e) => setSubLabel(sIdx, e.target.innerText)}
-                    >{char.subLabels[sIdx]}</div>
-                  </window.ImageSlot>
-                );
-              })}
-              <button className="image-slot--add" onClick={addSubSlot} title="이미지 슬롯 추가">+</button>
-            </div>
-          )}
-          {char.subImages.length <= 2 && (
-            <button className="image-slot--add" onClick={addSubSlot} title="이미지 슬롯 추가" style={{aspectRatio: 'auto', height: 40, marginTop: 4}}>+ 이미지 슬롯 추가</button>
-          )}
+          <button className="images-add-btn" onClick={addSubSlot} title="이미지 슬롯 추가">+ 이미지 슬롯 추가</button>
         </div>
 
         {/* INFO */}

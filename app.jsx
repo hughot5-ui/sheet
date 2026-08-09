@@ -67,6 +67,7 @@ function makeCharacter(letter) {
     mainImage: null,
     subImages: [null, null, null, null], // 4 sub slots by default (main + 4 = 5 total)
     subLabels: ['평상시', '표정 예시', '전신 or 뒷모습', '기타'],
+    subShapes: ['square', 'square', 'rect', 'square'], // 'square' | 'rect' — 전신컷은 직사각형 기본
     traits: {
       appearance: isA ? [...DEFAULT_TRAITS_APPEARANCE_A] : [...DEFAULT_TRAITS_APPEARANCE_B],
       outfit: isA ? [...DEFAULT_TRAITS_OUTFIT_A] : [...DEFAULT_TRAITS_OUTFIT_B],

@@ -164,6 +164,16 @@ function App() {
           className={'canvas mode-' + state.mode}
           style={canvasStyle}
         >
+          {/* SUBTITLE (작품 · 세계관 · 관계 · 시대 배경 — 시트 최상단에 한 번만 표시) */}
+          <window.Editable
+            tag="div"
+            className="sheet__subtitle"
+            value={state.subtitle}
+            onChange={(v) => dispatch({ type: 'SET_SUBTITLE', value: v })}
+            placeholder="작품 · 세계관 · 관계 · 시대 배경을 여기에 짧게 적어주세요"
+            multiline
+          />
+
           {/* CHARACTERS */}
           <div className={'characters mode-' + state.mode}>
             {visibleChars.map((c, i) => (
@@ -173,8 +183,6 @@ function App() {
                 idx={i}
                 dispatch={dispatch}
                 isSingle={state.mode === 1}
-                subtitle={i === 0 ? state.subtitle : null}
-                onSubtitleChange={i === 0 ? (v) => dispatch({ type: 'SET_SUBTITLE', value: v }) : null}
               />
             ))}
           </div>
