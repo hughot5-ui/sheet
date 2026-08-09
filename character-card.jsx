@@ -273,28 +273,33 @@ function CharacterCard({ char, idx, dispatch, isSingle }) {
             >{char.xText}</span>
           </div>
 
-          {/* Color strip */}
-          <div className="color-strip">
-            <span className="color-strip__label">Palette</span>
-            {char.palette.map((color, pIdx) => (
-              <span className="color-strip__item" key={pIdx}>
-                <input
-                  type="color"
-                  className="color-strip__dot"
-                  value={color}
-                  onChange={(e) => setPaletteColor(pIdx, e.target.value)}
-                  title={color}
-                />
-                {char.palette.length > 1 && (
-                  <button
-                    className="color-strip__del"
-                    onClick={() => removePaletteColor(pIdx)}
-                    title="이 색상 삭제"
-                  >×</button>
-                )}
-              </span>
-            ))}
-            <button className="color-strip__add" onClick={addPaletteColor} title="색 추가">+</button>
+          {/* Palette strip */}
+          <div className="palette-section">
+            <div className="palette-section__title">
+              <span className="palette-section__dash"></span>PALETTE · 색상 팔레트
+            </div>
+            <div className="palette-strip">
+              {char.palette.map((color, pIdx) => (
+                <div className="palette-block" key={pIdx} style={{ background: color }}>
+                  <input
+                    type="color"
+                    className="palette-block__input"
+                    value={color}
+                    onChange={(e) => setPaletteColor(pIdx, e.target.value)}
+                    title={color}
+                  />
+                  <span className="palette-block__hex">{color.toUpperCase()}</span>
+                  {char.palette.length > 1 && (
+                    <button
+                      className="palette-block__del"
+                      onClick={(e) => { e.stopPropagation(); removePaletteColor(pIdx); }}
+                      title="이 색상 삭제"
+                    >×</button>
+                  )}
+                </div>
+              ))}
+              <button className="palette-block palette-block--add" onClick={addPaletteColor} title="색 추가">+</button>
+            </div>
           </div>
 
           {/* Meta bar */}
