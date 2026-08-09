@@ -108,20 +108,30 @@ function App() {
     // Wait a paint frame for the exporting class to take effect
     await new Promise(r => setTimeout(r, 60));
 
-    try {
-      const node = canvasRef.current;
-      const options = {
-        pixelRatio: 2,
-        backgroundColor: state.bg,
-        cacheBust: true,
-        style: { transform: 'none' },
-      };
-      let dataUrl;
+    const node = canvasRef.current;
+    const baseOptions = {
+      pixelRatio: 2,
+      backgroundColor: state.bg,
+      cacheBust: true,
+      style: { transform: 'none' },
+    };
+
+    const runExport = (opts) => {
       if (format === 'jpg') {
-        options.quality = 0.95;
-        dataUrl = await htmlToImage.toJpeg(node, options);
-      } else {
-        dataUrl = await htmlToImage.toPng(node, options);
+        return htmlToImage.toJpeg(node, { ...opts, quality: 0.95 });
+      }
+      return htmlToImage.toPng(node, opts);
+    };
+
+    try {
+      let dataUrl;
+      try {
+        dataUrl = await runExport(baseOptions);
+      } catch (firstErr) {
+        // Most common cause of a failed export: cross-origin webfonts (Google Fonts, Pretendard CDN)
+        // fail to be embedded as base64. Retry once without embedding external fonts.
+        console.warn('1차 저장 실패 - 폰트 임베드 없이 재시도합니다.', firstErr);
+        dataUrl = await runExport({ ...baseOptions, skipFonts: true });
       }
       const link = document.createElement('a');
       const now = new Date();
@@ -131,7 +141,7 @@ function App() {
       link.click();
     } catch (err) {
       console.error('Export failed', err);
-      alert('저장에 실패했어요. 다시 시도해주세요.\n' + err.message);
+      alert('저장에 실패했어요. 브라우저 콘솔(F12)에 표시된 에러 메시지를 확인해주세요.\n' + (err && err.message ? err.message : err));
     } finally {
       document.body.classList.remove('exporting');
       setIsExporting(false);
