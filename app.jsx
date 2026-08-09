@@ -254,11 +254,18 @@ async function fetchMinimalFontEmbedCSS(fontIds) {
    TOOLBAR
    ============================================================ */
 
-function Toolbar({ state, dispatch, onExport, onAddSticker }) {
+function Toolbar({ state, dispatch, onExport, onManualSave, onAddSticker }) {
   const fileInputRef = useRef(null);
+  const [saveFlash, setSaveFlash] = useState(false);
 
   const applyPreset = (preset) => {
     dispatch({ type: 'APPLY_PRESET', preset });
+  };
+
+  const handleManualSave = () => {
+    onManualSave();
+    setSaveFlash(true);
+    setTimeout(() => setSaveFlash(false), 1500);
   };
 
   return (
@@ -384,6 +391,11 @@ function Toolbar({ state, dispatch, onExport, onAddSticker }) {
 
       {/* Reset + Export */}
       <div className="toolbar__group" style={{borderRight:0}}>
+        <button
+          className={'tb-btn' + (saveFlash ? ' tb-btn--saved' : '')}
+          onClick={handleManualSave}
+          title="지금 상태를 브라우저에 즉시 임시 저장합니다"
+        >{saveFlash ? '저장됨 ✓' : '임시 저장'}</button>
         <button
           className="tb-btn"
           onClick={() => {

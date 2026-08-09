@@ -199,6 +199,7 @@ function App() {
         state={state}
         dispatch={dispatch}
         onExport={exportImage}
+        onManualSave={() => window.saveState(state)}
         onAddSticker={onAddSticker}
       />
 
