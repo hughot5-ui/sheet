@@ -324,24 +324,28 @@ function CharacterCard({ char, idx, dispatch, isSingle }) {
           {/* Meta bar */}
           <div className="char__meta">
             <span
+              className="char__meta-short"
               contentEditable
               suppressContentEditableWarning
               onBlur={(e) => setMeta('gender', e.target.innerText)}
             >{char.meta.gender}</span>
             <span className="sep">|</span>
             <span
+              className="char__meta-short"
               contentEditable
               suppressContentEditableWarning
               onBlur={(e) => setMeta('age', e.target.innerText)}
             >{char.meta.age}</span>
             <span className="sep">|</span>
             <span
+              className="char__meta-short"
               contentEditable
               suppressContentEditableWarning
               onBlur={(e) => setMeta('height', e.target.innerText)}
             >{char.meta.height}</span>
             <span className="sep">|</span>
             <span
+              className="char__meta-affiliation"
               contentEditable
               suppressContentEditableWarning
               onBlur={(e) => setMeta('affiliation', e.target.innerText)}

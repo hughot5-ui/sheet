@@ -282,6 +282,7 @@ input, textarea { font-family: inherit; color: inherit; }
   text-align: center;
   max-width: 760px;
   margin: -10px auto 30px;
+  word-break: keep-all;
 }
 .sheet__subtitle[data-placeholder]:empty::before {
   content: attr(data-placeholder);
@@ -306,6 +307,8 @@ input, textarea { font-family: inherit; color: inherit; }
   border: 1px solid color-mix(in oklab, var(--text) 10%, transparent);
   cursor: text;
   position: relative;
+  word-break: keep-all;
+  overflow-wrap: normal;
 }
 .char__tag .tag-del {
   opacity: 0;
@@ -351,6 +354,8 @@ input, textarea { font-family: inherit; color: inherit; }
   border: 1px solid color-mix(in oklab, var(--point) 30%, transparent);
   cursor: text;
   position: relative;
+  word-break: keep-all;
+  overflow-wrap: normal;
 }
 .relationship-tag .tag-del {
   opacity: 0;
@@ -813,10 +818,23 @@ input, textarea { font-family: inherit; color: inherit; }
   gap: 10px;
   justify-content: center;
   flex-wrap: wrap;
+  word-break: keep-all;
 }
 .char__meta span[contenteditable] {
   min-width: 20px;
   display: inline-block;
+}
+/* 성별/나이/키처럼 짧은 값은 내부에서 절대 줄바꿈되지 않도록 고정
+   (flex 행이 좁아져도 "160cm" 같은 값이 "160c"/"m"으로 쪼개지는 것을 방지) */
+.char__meta .char__meta-short {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+/* 소속/직업처럼 길어질 수 있는 값은 단어 사이에서는 줄바꿈되되,
+   한글 음절 중간에서 잘리지는 않도록 함 */
+.char__meta .char__meta-affiliation {
+  word-break: keep-all;
+  overflow-wrap: normal;
 }
 .char__meta .sep {
   opacity: 0.35;
@@ -850,6 +868,7 @@ input, textarea { font-family: inherit; color: inherit; }
   letter-spacing: 0.04em;
   min-width: 40px;
   max-width: 90%;
+  word-break: keep-all;
 }
 .canvas__footer-credit[data-placeholder]:empty::before {
   content: attr(data-placeholder);
